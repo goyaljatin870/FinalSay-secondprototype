@@ -40,7 +40,7 @@ jobs:
       - name: Build frontend
         working-directory: apps/web
         env:
-          VITE_API_URL: ${{ vars.API_URL }}
+          VITE_API_URL: ${{ vars.API_URL || 'https://finalsay-backend.onrender.com/api' }}
           VITE_BASE_URL: /FinalSay-secondprototype/
         run: npm run build
 
