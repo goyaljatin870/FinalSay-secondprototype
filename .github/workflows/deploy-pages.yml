@@ -40,7 +40,7 @@ jobs:
       - name: Build frontend
         working-directory: apps/web
         env:
-          VITE_API_URL: http://3.230.123.9:8000/api
+          VITE_API_URL: ${{ vars.API_URL }}
           VITE_BASE_URL: /FinalSay-secondprototype/
         run: npm run build
 
