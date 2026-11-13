@@ -63,9 +63,7 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
 
     # Automatic public notice polling; set to 0 to disable the background poller.
-    # Poll public notice portals every two hours by default; this is frequent
-    # enough to catch multiple daily postings while respecting host throttling.
-    scrape_interval_seconds: int = Field(default=7_200, ge=0)
+    scrape_interval_seconds: int = Field(default=0, ge=0)
 
     # Polygon Amoy on-chain anchoring (only used when anchor == "polygon").
     polygon_rpc_url: str | None = Field(

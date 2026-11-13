@@ -66,12 +66,11 @@ def onboard(*, apply: bool) -> list[str]:
             if not apply:
                 continue
             if existing is None:
-                existing = Institution(**source, scrape_enabled=True, active=True)
+                existing = Institution(**source, scrape_enabled=False, active=True)
                 db.add(existing)
             else:
                 for field, value in source.items():
                     setattr(existing, field, value)
-                existing.scrape_enabled = True
                 existing.active = True
         if apply:
             db.commit()

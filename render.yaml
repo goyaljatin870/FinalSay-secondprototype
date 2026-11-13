@@ -16,6 +16,8 @@ services:
         value: local
       - key: FINALSAY_JWT_SECRET
         generateValue: true
+      - key: FINALSAY_SCRAPE_INTERVAL_SECONDS
+        value: "0"
       - key: PYTHON_VERSION
         value: 3.11.0
     healthCheckPath: /api/health
