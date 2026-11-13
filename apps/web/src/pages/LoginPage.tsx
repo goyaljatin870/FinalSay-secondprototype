@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { errorMessage } from '../api/client'
+import AuthLayout from '../components/AuthLayout'
+import PasswordField from '../components/PasswordField'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -28,9 +31,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="narrow">
-      <div className="card">
-        <h1>Log in</h1>
+    <AuthLayout>
+      <div className="auth-form">
+        <h1 id="auth-title">Welcome back</h1>
+        <p className="muted">Sign in to your FinalSay workspace.</p>
         <form
           onSubmit={(ev) => {
             ev.preventDefault()
@@ -38,33 +42,27 @@ export default function LoginPage() {
           }}
         >
           <label>
-            Email
+            Email address
             <input
               type="email"
+              autoComplete="email"
+              placeholder="you@university.edu"
               value={email}
               onChange={(ev) => setEmail(ev.target.value)}
               required
             />
           </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(ev) => setPassword(ev.target.value)}
-              required
-            />
-          </label>
-          {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={busy}>
-            {busy ? 'Signing in…' : 'Log in'}
+          <PasswordField value={password} onChange={setPassword} />
+          {error && <p className="error" role="alert">{error}</p>}
+          <button className="auth-submit" type="submit" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={18} aria-hidden="true" />
           </button>
         </form>
-        <p className="muted">
-          No account? <Link to="/register">Register</Link>
+        <p className="auth-switch muted">
+          New to FinalSay? <Link to="/register">Create an account</Link>
         </p>
       </div>
 
-    </div>
+    </AuthLayout>
   )
 }

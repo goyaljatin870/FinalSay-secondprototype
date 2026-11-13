@@ -35,7 +35,8 @@ export default function App() {
   return (
     <div className="app">
       <NavBar />
-      <main className="content">
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <main className="content" id="main-content">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<LoginPage />} />

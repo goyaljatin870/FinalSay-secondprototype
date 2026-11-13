@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { errorMessage } from '../api/client'
+import AuthLayout from '../components/AuthLayout'
+import PasswordField from '../components/PasswordField'
 
 export default function RegisterPage() {
   const { register } = useAuth()
@@ -27,47 +30,36 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="narrow">
-      <div className="card">
-        <h1>Register</h1>
+    <AuthLayout>
+      <div className="auth-form">
+        <h1 id="auth-title">Create your account</h1>
+        <p className="muted">Get started with a student account.</p>
         <form onSubmit={onSubmit}>
           <label>
-            Display name
-            <input value={displayName} onChange={(ev) => setDisplayName(ev.target.value)} />
+            Display name <span className="muted">(optional)</span>
+            <input autoComplete="name" placeholder="Your name" value={displayName} onChange={(ev) => setDisplayName(ev.target.value)} />
           </label>
           <label>
-            Email
+            Email address
             <input
               type="email"
+              autoComplete="email"
+              placeholder="you@university.edu"
               value={email}
               onChange={(ev) => setEmail(ev.target.value)}
               required
             />
           </label>
-          <label>
-            Password (min 6 characters)
-            <input
-              type="password"
-              value={password}
-              minLength={6}
-              onChange={(ev) => setPassword(ev.target.value)}
-              required
-            />
-          </label>
-          {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={busy}>
-            {busy ? 'Creating…' : 'Create account'}
+          <PasswordField value={password} onChange={setPassword} newPassword />
+          {error && <p className="error" role="alert">{error}</p>}
+          <button className="auth-submit" type="submit" disabled={busy}>
+            {busy ? 'Creating…' : 'Create account'} <ArrowRight size={18} aria-hidden="true" />
           </button>
         </form>
-        <p className="muted">
-          New accounts are created as <strong>students</strong>. Reviewer, admin
-          and issuer accounts are provisioned through the institution's approved
-          account-management process.
-        </p>
-        <p className="muted">
-          Already have an account? <Link to="/login">Log in</Link>
+        <p className="auth-switch muted">
+          Already have an account? <Link to="/login">Sign in</Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   )
 }
