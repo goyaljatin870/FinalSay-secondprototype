@@ -86,6 +86,12 @@ def create_app() -> FastAPI:
     except Exception as exc:
         logger.warning("Auto-seed users skipped: %s", exc)
 
+    try:
+        from finalsay.services.source_onboarding import onboard
+        onboard(apply=True)
+    except Exception as exc:
+        logger.warning("Auto-onboard sources skipped: %s", exc)
+
     @app.middleware("http")
     async def request_logging_middleware(request: Request, call_next):
         start = time.perf_counter()

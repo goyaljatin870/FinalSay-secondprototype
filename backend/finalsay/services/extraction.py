@@ -122,12 +122,30 @@ def _is_file(path: str) -> bool:
 
 
 def text_from_pdf(data: bytes) -> str:
-    """Extract PDF text, using OCR for blank or clearly damaged text layers."""
-    from pypdf import PdfReader
+    """Extract PDF text, prioritizing PyMuPDF and falling back to pypdf / OCR."""
+    embedded = ""
+    try:
+        import pymupdf as fitz
 
-    reader = PdfReader(io.BytesIO(data), strict=False)
-    parts = [(page.extract_text() or "") for page in reader.pages[:30]]
-    embedded = "\n".join(parts).strip()[:30_000]
+        doc = fitz.open(stream=data, filetype="pdf")
+        parts = [page.get_text() for page in doc[:30]]
+        doc.close()
+        embedded = "\n".join(parts).strip()[:30_000]
+    except Exception:
+        pass
+
+    if not embedded or _pdf_text_needs_ocr(embedded):
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(io.BytesIO(data), strict=False)
+            pypdf_parts = [(page.extract_text() or "") for page in reader.pages[:30]]
+            pypdf_text = "\n".join(pypdf_parts).strip()[:30_000]
+            if len(pypdf_text) > len(embedded):
+                embedded = pypdf_text
+        except Exception:
+            pass
+
     if not embedded or _pdf_text_needs_ocr(embedded):
         scanned = _ocr_pdf(data)
         if _usable_ocr(scanned, embedded):

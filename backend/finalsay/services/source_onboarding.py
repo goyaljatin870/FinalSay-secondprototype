@@ -57,7 +57,9 @@ def onboard(*, apply: bool) -> list[str]:
                     outcomes.append(f"disable unselected live source {legacy.slug}")
         for source in OFFICIAL_SOURCES:
             existing = db.scalar(
-                select(Institution).where(Institution.slug == source["slug"])
+                select(Institution).where(
+                    (Institution.slug == source["slug"]) | (Institution.scrape_type == source["scrape_type"])
+                )
             )
             action = "create" if existing is None else "update"
             outcomes.append(f"{action} {source['slug']} ({source['source_url']})")

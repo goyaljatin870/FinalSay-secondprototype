@@ -26,7 +26,7 @@ from finalsay.adapters.base import InstitutionAdapter, RawNotice
 USER_AGENT = "FinalSayNoticeVerifier/0.1 (+public academic notices; contact: local prototype)"
 MAX_HTML_BYTES = 20_000_000
 MAX_JSON_BYTES = 3_000_000
-MAX_PDF_BYTES = 20_000_000
+MAX_PDF_BYTES = 35_000_000
 MAX_NOTICES_PER_SOURCE = 250
 MAX_REQUEST_ATTEMPTS = 3
 MIN_REQUEST_INTERVAL = 0.5
@@ -607,9 +607,8 @@ class _LiveAdapter(InstitutionAdapter):
                 body = text_from_image(data, timeout=8)
             else:
                 body = _pdf_text(data)
-            if not body:
-                kind = "image" if is_image else "PDF"
-                self.errors.append(f"{kind} had no extractable text: {url}")
+            # If text is empty (scanned PDF or image), it is recorded as
+            # extraction_quality='unextractable' rather than a source failure.
             publication_date = date or _publication_date(body)
             fields = [f"Issued by: {self.name}", f"Subject: {title}"]
             if body:
@@ -926,7 +925,6 @@ class VtuExaminationAdapter(_PaginatedCatalogAdapter):
                 extraction_qualities.append(raw.metadata.get("extraction_quality", "unknown"))
                 source_file = source_file or attachment_url
         if not texts:
-            self.errors.append(f"VTU notice has no extractable attachment: {post_url}")
             texts = [listing_text or title]
         extraction_quality = (
             "extracted" if "extracted" in extraction_qualities

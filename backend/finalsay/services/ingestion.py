@@ -397,7 +397,7 @@ def fetch_all(
         summary["created"] += created
         summary["modified"] += modified
         summary["skipped"] += skipped
-        summary["errors"] += int(error is not None)
+        summary["errors"] += int(status == "error")
         institution_result = {
             "slug": adapter.slug,
             "name": adapter.name,
