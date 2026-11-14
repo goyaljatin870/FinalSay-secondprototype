@@ -41,6 +41,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         navigateFallback: `${base}index.html`,
         navigateFallbackDenylist: [/^\/api/],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
