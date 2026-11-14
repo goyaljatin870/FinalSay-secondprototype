@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
     )
 
     # Create tables on startup (fine for SQLite demo; Postgres uses same models).
+    logger.info("Database: %s", engine.url.render_as_string(hide_password=True))
     Base.metadata.create_all(bind=engine)
     run_migrations(engine)
 
