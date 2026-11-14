@@ -382,6 +382,75 @@ def test_admin_fetch_endpoint_no_duplicates(client: TestClient, make_user, monke
     assert len(listing.json()) == created_1
 
 
+def test_admin_fetch_endpoint_targets_single_source(client: TestClient, make_user, monkeypatch):
+    token = _token(client, make_user, "admin_single_source@example.com", "s3cret1", "admin")
+
+    client.post(
+        "/api/ingest/sources",
+        json={
+            "name": "Target University",
+            "slug": "target-source",
+            "source_url": "https://vtu.ac.in/category/examination/",
+            "scrape_type": "vtu_examination",
+            "scrape_enabled": False,
+        },
+        headers=_auth(token),
+    )
+    client.post(
+        "/api/ingest/sources",
+        json={
+            "name": "Untargeted University",
+            "slug": "untargeted-source",
+            "source_url": "https://exam.du.ac.in/exam/index.php/notifications",
+            "scrape_type": "du_examination",
+            "scrape_enabled": True,
+        },
+        headers=_auth(token),
+    )
+
+    polled = []
+
+    class TargetFakeAdapter:
+        errors = []
+        supports_backfill = False
+
+        def __init__(self, institution):
+            self.slug = institution.slug
+            self.name = institution.name
+            self.base_url = institution.source_url
+
+        def fetch(self):
+            polled.append(self.slug)
+            return []
+
+    monkeypatch.setattr(
+        "finalsay.adapters.live.create_live_adapter", TargetFakeAdapter
+    )
+
+    resp = client.post("/api/ingest/fetch?source=target-source", headers=_auth(token))
+    assert resp.status_code == 200, resp.text
+    assert polled == ["target-source"]
+
+
+def test_source_onboarding_enable_and_dry_run():
+    from finalsay.services import source_onboarding
+
+    dry = source_onboarding.onboard(apply=False)
+    assert len(dry) == 3
+
+    applied = source_onboarding.onboard(apply=True, enable=True)
+    assert len(applied) >= 3
+
+    from finalsay.db import SessionLocal
+    from finalsay.models import Institution
+    from sqlalchemy import select
+
+    with SessionLocal() as db:
+        vtu = db.scalar(select(Institution).where(Institution.slug == "vtu"))
+        assert vtu is not None
+        assert vtu.scrape_enabled is True
+
+
 def test_fetch_requires_admin(client: TestClient, make_user):
     student = _token(client, make_user, "stud2@example.com", "s3cret1", "student")
     resp = client.post("/api/ingest/fetch", headers=_auth(student))

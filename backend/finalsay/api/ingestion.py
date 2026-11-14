@@ -181,7 +181,10 @@ async def submit(
     response_model=FetchResponse,
     dependencies=[Depends(require_role("admin"))],
 )
-def fetch(db: Session = Depends(get_db)) -> FetchResponse:
+def fetch(
+    source: str | None = None,
+    db: Session = Depends(get_db),
+) -> FetchResponse:
     """Run all adapters and upsert official notices by content hash (idempotent)."""
     from finalsay.services.scrape_runtime import acquire_scrape_slot, release_scrape_slot
 
@@ -195,7 +198,11 @@ def fetch(db: Session = Depends(get_db)) -> FetchResponse:
     if not acquired:
         raise HTTPException(status_code=409, detail="a source poll is already running")
     try:
-        summary = ingestion.fetch_all(db, include_fixtures=False)
+        summary = ingestion.fetch_all(
+            db,
+            include_fixtures=False,
+            source_slugs={source} if source else None,
+        )
         db.commit()
         return FetchResponse(**summary)
     except Exception:

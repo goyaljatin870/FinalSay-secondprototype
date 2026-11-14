@@ -298,11 +298,12 @@ def fetch_all(
     if include_live_sources:
         source_query = select(Institution).where(
             Institution.active.is_(True),
-            Institution.scrape_enabled.is_(True),
             Institution.scrape_type != "fixture",
         )
         if source_slugs is not None:
             source_query = source_query.where(Institution.slug.in_(source_slugs))
+        else:
+            source_query = source_query.where(Institution.scrape_enabled.is_(True))
         configured_sources = list(
             db.scalars(source_query.order_by(Institution.id)).all()
         )

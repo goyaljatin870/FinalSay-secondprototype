@@ -40,9 +40,12 @@ OFFICIAL_SOURCES = (
 )
 
 
-def onboard(*, apply: bool) -> list[str]:
+def onboard(*, apply: bool, enable: bool = False) -> list[str]:
     """Create/update the selected source rows. Safe to run repeatedly."""
-    if apply:
+    from sqlalchemy import inspect
+
+    inspector = inspect(engine)
+    if apply or not inspector.has_table("institution"):
         Base.metadata.create_all(bind=engine)
         run_migrations(engine)
     db = SessionLocal()
@@ -66,11 +69,13 @@ def onboard(*, apply: bool) -> list[str]:
             if not apply:
                 continue
             if existing is None:
-                existing = Institution(**source, scrape_enabled=False, active=True)
+                existing = Institution(**source, scrape_enabled=enable, active=True)
                 db.add(existing)
             else:
                 for field, value in source.items():
                     setattr(existing, field, value)
+                if enable:
+                    existing.scrape_enabled = True
                 existing.active = True
         if apply:
             db.commit()
@@ -89,14 +94,20 @@ def main() -> None:
         action="store_true",
         help="write source configuration to the currently configured database",
     )
+    parser.add_argument(
+        "--enable",
+        action="store_true",
+        help="enable scraping on the configured official sources",
+    )
     args = parser.parse_args()
     print("Selected official source onboarding:")
-    for outcome in onboard(apply=args.apply):
+    for outcome in onboard(apply=args.apply, enable=args.enable):
         print(f"- {outcome}")
     if not args.apply:
         print("Dry run only. Re-run with --apply to save these source profiles.")
     else:
-        print("Saved. The running service will poll enabled sources on its next cycle.")
+        status_msg = "enabled for polling" if args.enable else "configured (polling disabled until enabled)"
+        print(f"Saved: sources are {status_msg}.")
         print("Default poll interval: 7200 seconds (2 hours).")
 
 

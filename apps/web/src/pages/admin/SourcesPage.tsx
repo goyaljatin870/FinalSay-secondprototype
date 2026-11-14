@@ -114,16 +114,17 @@ export default function SourcesPage() {
     }
   }
 
-  const triggerFetch = async () => {
+  const triggerFetch = async (sourceSlug?: string) => {
     setError('')
     setMessage('')
     setFetchResult(null)
     setBusy(true)
     try {
-      const res = await api.post<FetchResponse>('/ingest/fetch')
+      const url = sourceSlug ? `/ingest/fetch?source=${encodeURIComponent(sourceSlug)}` : '/ingest/fetch'
+      const res = await api.post<FetchResponse>(url)
       setFetchResult(res.data)
       setMessage(
-        `Poll complete: ${res.data.created} new, ${res.data.modified} revised, ` +
+        `Poll complete${sourceSlug ? ` for ${sourceSlug}` : ''}: ${res.data.created} new, ${res.data.modified} revised, ` +
         `${res.data.skipped} unchanged, ${res.data.errors} source errors.`,
       )
       await load()
@@ -197,7 +198,7 @@ export default function SourcesPage() {
           hosts, robots rules, bounded downloads, retries and per-host spacing.
         </p>
         <div className="row">
-          <button onClick={triggerFetch} disabled={busy}>
+          <button onClick={() => void triggerFetch()} disabled={busy}>
             {busy ? 'Polling sources…' : 'Poll configured sources'}
           </button>
         </div>
@@ -255,7 +256,12 @@ export default function SourcesPage() {
                     {source.unknown_extraction_count} unknown
                   </td>
                   <td><Link to={`/notices?institution_id=${source.id}`}>Browse notices</Link></td>
-                  <td><button type="button" onClick={() => beginEdit(source)}>Configure</button></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      <button type="button" onClick={() => void triggerFetch(source.slug)} disabled={busy} title={`Poll ${source.name} now`}>Poll</button>
+                      <button type="button" onClick={() => beginEdit(source)}>Configure</button>
+                    </div>
+                  </td>
                 </tr>
                 )
               })}
