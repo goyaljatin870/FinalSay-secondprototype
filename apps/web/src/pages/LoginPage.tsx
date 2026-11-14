@@ -58,41 +58,6 @@ export default function LoginPage() {
             {busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={18} aria-hidden="true" />
           </button>
         </form>
-        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border, #e2e8f0)' }}>
-          <p className="muted" style={{ fontSize: '0.825rem', marginBottom: '0.5rem' }}>
-            Demo accounts (click to fill):
-          </p>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', cursor: 'pointer' }}
-              onClick={() => { setEmail('admin@finalsay.demo'); setPassword('admin123'); }}
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', cursor: 'pointer' }}
-              onClick={() => { setEmail('reviewer@finalsay.demo'); setPassword('reviewer123'); }}
-            >
-              Reviewer
-            </button>
-            <button
-              type="button"
-              style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', cursor: 'pointer' }}
-              onClick={() => { setEmail('student@finalsay.demo'); setPassword('student123'); }}
-            >
-              Student
-            </button>
-            <button
-              type="button"
-              style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', cursor: 'pointer' }}
-              onClick={() => { setEmail('issuer@finalsay.demo'); setPassword('issuer123'); }}
-            >
-              Issuer
-            </button>
-          </div>
-        </div>
         <p className="auth-switch muted">
           New to FinalSay? <Link to="/register">Create an account</Link>
         </p>
