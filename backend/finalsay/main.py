@@ -77,20 +77,21 @@ def create_app() -> FastAPI:
     Base.metadata.create_all(bind=engine)
     run_migrations(engine)
 
-    try:
-        from finalsay.db import SessionLocal
-        from finalsay.seed.seed import _seed_users
-        with SessionLocal() as seed_db:
-            _seed_users(seed_db)
-            seed_db.commit()
-    except Exception as exc:
-        logger.warning("Auto-seed users skipped: %s", exc)
+    if get_settings().auto_bootstrap:
+        try:
+            from finalsay.db import SessionLocal
+            from finalsay.seed.seed import _seed_users
+            with SessionLocal() as seed_db:
+                _seed_users(seed_db)
+                seed_db.commit()
+        except Exception as exc:
+            logger.warning("Auto-seed users skipped: %s", exc)
 
-    try:
-        from finalsay.services.source_onboarding import onboard
-        onboard(apply=True)
-    except Exception as exc:
-        logger.warning("Auto-onboard sources skipped: %s", exc)
+        try:
+            from finalsay.services.source_onboarding import onboard
+            onboard(apply=True)
+        except Exception as exc:
+            logger.warning("Auto-onboard sources skipped: %s", exc)
 
     @app.middleware("http")
     async def request_logging_middleware(request: Request, call_next):

@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # Comma-separated browser origins allowed to call the API ("*" allows all).
     cors_origins: str = "*"
 
+    # Seed demo users and onboard official sources on app startup. Turn off
+    # (FINALSAY_AUTO_BOOTSTRAP=0) when you manage data yourself, and in tests.
+    auto_bootstrap: bool = True
+
     # Automatic public notice polling; set to 0 to disable the background poller.
     scrape_interval_seconds: int = Field(default=0, ge=0)
 
