@@ -42,11 +42,11 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Student */}
+          {/* Student & Admin */}
           <Route
             path="/submit"
             element={
-              <ProtectedRoute roles={['student']}>
+              <ProtectedRoute roles={['student', 'admin']}>
                 <SubmitPage />
               </ProtectedRoute>
             }
@@ -70,7 +70,7 @@ export default function App() {
           <Route
             path="/alerts"
             element={
-              <ProtectedRoute roles={['student']}>
+              <ProtectedRoute roles={['student', 'admin']}>
                 <AlertsPage />
               </ProtectedRoute>
             }

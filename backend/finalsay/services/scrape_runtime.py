@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-import fcntl
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows compatibility
+    fcntl = None
+
+try:
+    import msvcrt
+except ImportError:  # pragma: no cover - non-Windows platforms
+    msvcrt = None
 import hashlib
 import logging
 import os
@@ -145,8 +153,11 @@ def acquire_scrape_slot() -> bool:
                     lock_path, os.O_CREAT | os.O_RDWR, 0o600
                 )
                 try:
-                    fcntl.flock(file_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
+                    if fcntl is not None:
+                        fcntl.flock(file_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    elif msvcrt is not None:
+                        msvcrt.locking(file_descriptor, msvcrt.LK_NBLCK, 1)
+                except (BlockingIOError, OSError):
                     os.close(file_descriptor)
                     _SCRAPE_LOCK.release()
                     return False
@@ -177,7 +188,14 @@ def release_scrape_slot() -> None:
                 del _DATABASE_LOCK.connection
         if file_descriptor is not None:
             try:
-                fcntl.flock(file_descriptor, fcntl.LOCK_UN)
+                if fcntl is not None:
+                    fcntl.flock(file_descriptor, fcntl.LOCK_UN)
+                elif msvcrt is not None:
+                    try:
+                        os.lseek(file_descriptor, 0, os.SEEK_SET)
+                        msvcrt.locking(file_descriptor, msvcrt.LK_UNLCK, 1)
+                    except OSError:
+                        pass
             finally:
                 os.close(file_descriptor)
                 del _DATABASE_LOCK.file_descriptor

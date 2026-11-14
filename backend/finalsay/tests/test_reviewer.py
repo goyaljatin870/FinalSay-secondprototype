@@ -92,6 +92,32 @@ def test_resolve_updates_edge_and_closes_case(client: TestClient, db_session, ma
     assert refreshed_case.resolved_label == "superseded"
 
 
+def test_get_case_detail_open_and_closed(client: TestClient, db_session, make_user):
+    case, edge = _make_unresolved_case(db_session)
+    reviewer = _token(client, make_user, "rev_detail@example.com", "s3cret1", "reviewer")
+
+    # Open case detail
+    open_resp = client.get(f"/api/reviewer/cases/{case.id}", headers=_auth(reviewer))
+    assert open_resp.status_code == 200
+    assert open_resp.json()["case_id"] == case.id
+    assert open_resp.json()["status"] == "open"
+
+    # Resolve case
+    resolve_resp = client.post(
+        f"/api/reviewer/cases/{case.id}/resolve",
+        json={"label": "superseded"},
+        headers=_auth(reviewer),
+    )
+    assert resolve_resp.status_code == 200
+
+    # Closed case detail still retrievable directly
+    closed_resp = client.get(f"/api/reviewer/cases/{case.id}", headers=_auth(reviewer))
+    assert closed_resp.status_code == 200
+    assert closed_resp.json()["case_id"] == case.id
+    assert closed_resp.json()["status"] == "closed"
+    assert closed_resp.json()["label"] == "superseded"
+
+
 def test_resolve_confirmed_when_label_unchanged(client: TestClient, db_session, make_user):
     case, edge = _make_unresolved_case(db_session)
     reviewer = _token(client, make_user, "rev2@example.com", "s3cret1", "reviewer")

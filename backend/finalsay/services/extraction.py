@@ -112,7 +112,16 @@ def _tesseract_available() -> str | None:
     configured = settings.tesseract_cmd
     if configured and configured != "auto":
         return configured if shutil.which(configured) or _is_file(configured) else None
-    return shutil.which("tesseract")
+    cmd = shutil.which("tesseract")
+    if cmd:
+        return cmd
+    for common in (
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ):
+        if _is_file(common):
+            return common
+    return None
 
 
 def _is_file(path: str) -> bool:

@@ -246,13 +246,26 @@ def classify_submission(
 
     review_case: ReviewCase | None = None
     if label == "unresolved":
-        review_case = ReviewCase(
-            edge_id=edge.id,
-            status="open",
-            assigned_role="reviewer",
+        existing_open_case = db.scalar(
+            select(ReviewCase)
+            .join(RelationEdge, RelationEdge.id == ReviewCase.edge_id)
+            .where(
+                RelationEdge.src_notice_id == submission.id,
+                ReviewCase.status == "open",
+            )
+            .order_by(ReviewCase.id.desc())
         )
-        db.add(review_case)
-        db.flush()
+        if existing_open_case is not None:
+            existing_open_case.edge_id = edge.id
+            review_case = existing_open_case
+        else:
+            review_case = ReviewCase(
+                edge_id=edge.id,
+                status="open",
+                assigned_role="reviewer",
+            )
+            db.add(review_case)
+            db.flush()
 
     return ComparisonOutcome(
         edge=edge,

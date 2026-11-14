@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import hashlib
 import json
 
@@ -109,6 +110,46 @@ def queue(db: Session = Depends(get_db)) -> list[ReviewQueueItem]:
             )
         )
     return items
+
+
+@router.get(
+    "/cases/{case_id}",
+    response_model=ReviewQueueItem,
+    dependencies=[Depends(require_role("reviewer", "admin"))],
+)
+def get_case(
+    case_id: int,
+    db: Session = Depends(get_db),
+) -> ReviewQueueItem:
+    case = db.get(ReviewCase, case_id)
+    if case is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"review case {case_id} not found",
+        )
+    edge = db.get(RelationEdge, case.edge_id)
+    if edge is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="edge for review case not found",
+        )
+    submission = db.get(Notice, edge.src_notice_id)
+    candidate = db.get(Notice, edge.dst_notice_id)
+    candidate_summary = (
+        NoticeSummary.model_validate(candidate)
+        if candidate is not None and candidate.id != edge.src_notice_id
+        else None
+    )
+    return ReviewQueueItem(
+        case_id=case.id,
+        edge_id=edge.id,
+        status=case.status,
+        label=edge.label,
+        confidence=edge.confidence,
+        rationale=edge.rationale,
+        submission=NoticeSummary.model_validate(submission),
+        candidate=candidate_summary,
+    )
 
 
 @router.post(

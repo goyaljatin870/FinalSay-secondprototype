@@ -151,3 +151,70 @@ def test_no_candidate_routes_to_unresolved(db_session):
 
     assert outcome.label == "unresolved"
     assert outcome.review_case is not None
+
+
+def test_reclassification_reuses_existing_open_review_case(db_session):
+    submission = _make_notice(
+        db_session, "submission", "Standalone submission with no official match.", institution_id=88
+    )
+    db_session.commit()
+
+    outcome1 = comparison.classify_submission(db_session, submission)
+    db_session.commit()
+    assert outcome1.label == "unresolved"
+    assert outcome1.review_case is not None
+
+    cases_after_first = db_session.scalars(
+        select(ReviewCase).where(ReviewCase.status == "open")
+    ).all()
+    assert len(cases_after_first) == 1
+    original_case_id = cases_after_first[0].id
+
+    # Second classification should reuse the open review case instead of creating a duplicate
+    outcome2 = comparison.classify_submission(db_session, submission)
+    db_session.commit()
+    assert outcome2.label == "unresolved"
+    assert outcome2.review_case.id == original_case_id
+    assert outcome2.review_case.edge_id == outcome2.edge.id
+
+    cases_after_second = db_session.scalars(
+        select(ReviewCase).where(ReviewCase.status == "open")
+    ).all()
+    assert len(cases_after_second) == 1
+
+
+def test_get_compare_api_is_idempotent(client, make_user, db_session):
+    user = make_user("student_compare@finalsay.edu", "password123", "student")
+    token_resp = client.post("/api/auth/login", data={"username": "student_compare@finalsay.edu", "password": "password123"})
+    token = token_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    official = _make_notice(db_session, "official", "Official university notice on semester schedule.", institution_id=1)
+    submission = Notice(
+        kind="submission",
+        institution_id=1,
+        issuer="Registrar",
+        redacted_text="Student copy of notice on semester schedule.",
+        submitted_by=user.id,
+    )
+    db_session.add(submission)
+    db_session.commit()
+
+    # Initial GET /api/compare/{id} computes comparison
+    res1 = client.get(f"/api/compare/{submission.id}", headers=headers)
+    assert res1.status_code == 200
+    data1 = res1.json()
+    assert data1["submission_id"] == submission.id
+    edge_id_1 = data1["edge_id"]
+
+    # Second GET /api/compare/{id} reuses existing edge without adding duplicates
+    res2 = client.get(f"/api/compare/{submission.id}", headers=headers)
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert data2["edge_id"] == edge_id_1
+
+    edges = db_session.scalars(
+        select(RelationEdge).where(RelationEdge.src_notice_id == submission.id)
+    ).all()
+    assert len(edges) == 1
+

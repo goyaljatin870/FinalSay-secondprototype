@@ -87,7 +87,7 @@ export default function NoticesPage() {
   const pages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE))
   const visible = matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const sourceUrl = selected?.source_url
-  const canCompare = user?.role === 'student' && selected?.redacted_text && selected.is_current &&
+  const canCompare = (user?.role === 'student' || user?.role === 'admin') && selected?.redacted_text && selected.is_current &&
     sources.some((source) => source.id === selected.institution_id && source.active && source.current_notice_count > 0)
 
   return (

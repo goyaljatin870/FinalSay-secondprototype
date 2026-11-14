@@ -79,7 +79,7 @@ export default function ResultPage() {
     setError('')
     setVerify(null)
     setVerifyError('')
-    const result = api.post<ComparisonResponse>('/compare/' + submissionId, null, { signal: controller.signal })
+    const result = api.get<ComparisonResponse>('/compare/' + submissionId, { signal: controller.signal })
       .catch((err: unknown) => {
         if (isAxiosError(err) && err.response?.status === 404) return null
         throw err

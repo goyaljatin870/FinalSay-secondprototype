@@ -13,9 +13,9 @@ interface NavItem {
 
 // Role-aware navigation: only links the signed-in role can use are shown.
 const NAV: NavItem[] = [
-  { to: '/submit', label: 'Verify a notice', icon: FileCheck2, roles: ['student'] },
+  { to: '/submit', label: 'Verify a notice', icon: FileCheck2, roles: ['student', 'admin'] },
   { to: '/notices', label: 'Official notices', icon: Landmark, roles: ['student', 'reviewer', 'admin', 'issuer'] },
-  { to: '/alerts', label: 'Recent updates', icon: Bell, roles: ['student'] },
+  { to: '/alerts', label: 'Recent updates', icon: Bell, roles: ['student', 'admin'] },
   { to: '/reviewer/queue', label: 'Review queue', icon: ClipboardList, roles: ['reviewer', 'admin'] },
   { to: '/reviewer/benchmark', label: 'Benchmark', icon: BookOpen, roles: ['reviewer'] },
   { to: '/admin/sources', label: 'Sources', icon: Globe2, roles: ['admin'] },

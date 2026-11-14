@@ -10,8 +10,7 @@ import {
 } from '../../api/types'
 import LabelBadge from '../../components/LabelBadge'
 
-// A single review case: confirm or correct the relationship label. The backend
-// has no per-case GET, so we pull the queue and pick the matching case.
+// A single review case: confirm or correct the relationship label.
 export default function CasePage() {
   const { id } = useParams<{ id: string }>()
   const caseId = Number(id)
@@ -30,8 +29,8 @@ export default function CasePage() {
     setLoading(true)
     setError('')
     try {
-      const queue = await api.get<ReviewQueueItem[]>('/reviewer/queue')
-      const found = queue.data.find((c) => c.case_id === caseId) ?? null
+      const res = await api.get<ReviewQueueItem>(`/reviewer/cases/${caseId}`)
+      const found = res.data
       setItem(found)
       if (found) {
         setLabel(found.label)
@@ -95,9 +94,22 @@ export default function CasePage() {
       <div className="card">
         <h1>Case not found</h1>
         <p className="muted">
-          Case #{caseId} is not in the open queue (it may already be resolved).
+          Case #{caseId} could not be found.
         </p>
         <button onClick={() => navigate('/reviewer/queue')}>Back to queue</button>
+      </div>
+    )
+  }
+  if (item.status === 'closed') {
+    return (
+      <div className="stack">
+        <div className="card">
+          <h1>Case #{item.case_id} (Resolved)</h1>
+          <p>
+            This review case has already been resolved with label <LabelBadge label={item.label} />.
+          </p>
+          <button onClick={() => navigate('/reviewer/queue')}>Back to queue</button>
+        </div>
       </div>
     )
   }
