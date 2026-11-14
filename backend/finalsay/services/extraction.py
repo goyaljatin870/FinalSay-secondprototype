@@ -116,6 +116,10 @@ def _tesseract_available() -> str | None:
     if cmd:
         return cmd
     for common in (
+        "/usr/bin/tesseract",
+        "/usr/local/bin/tesseract",
+        "/opt/homebrew/bin/tesseract",
+        "/bin/tesseract",
         r"C:\Program Files\Tesseract-OCR\tesseract.exe",
         r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
     ):

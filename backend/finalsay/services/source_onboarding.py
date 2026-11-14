@@ -37,6 +37,12 @@ OFFICIAL_SOURCES = (
         "source_url": "https://mu.ac.in/circular.php",
         "scrape_type": "mumbai_circulars",
     },
+    {
+        "slug": "thapar-institute",
+        "name": "Thapar Institute of Engineering and Technology",
+        "source_url": "https://www.thapar.edu/students/pages/dean-academics-notice-board",
+        "scrape_type": "thapar_html",
+    },
 )
 
 

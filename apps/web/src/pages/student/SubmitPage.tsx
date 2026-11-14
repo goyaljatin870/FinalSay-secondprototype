@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowDownRight, ArrowRight, FileSearch, FileText, Landmark, ScanLine, ShieldCheck, UploadCloud, X } from 'lucide-react'
+import Tesseract from 'tesseract.js'
 import { api, errorMessage } from '../../api/client'
 import type { ComparisonResponse, InstitutionOut } from '../../api/types'
 
@@ -32,6 +33,9 @@ export default function SubmitPage() {
   const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [ocrLoading, setOcrLoading] = useState(false)
+  const [ocrProgress, setOcrProgress] = useState(0)
+  const [ocrExtracted, setOcrExtracted] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -55,27 +59,56 @@ export default function SubmitPage() {
     return () => controller.abort()
   }, [attempt])
 
+  async function performOcr(imageFile: File) {
+    setOcrLoading(true)
+    setOcrProgress(0)
+    setError('')
+    try {
+      const res = await Tesseract.recognize(imageFile, 'eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+            setOcrProgress(Math.round(m.progress * 100))
+          }
+        },
+      })
+      const recognized = res.data.text.trim()
+      if (recognized) {
+        setOcrExtracted(recognized)
+        setText(recognized)
+      }
+    } catch (err) {
+      console.warn('Client OCR attempt:', err)
+    } finally {
+      setOcrLoading(false)
+    }
+  }
+
   function chooseFile(value: File | null) {
     if (fileInput.current) fileInput.current.value = ''
     setError('')
+    setOcrExtracted('')
     if (value && (!/\.(pdf|png|jpe?g|gif|webp)$/i.test(value.name) || value.size === 0)) {
       setError('Choose a nonempty PDF, PNG, JPG, GIF or WebP file.')
       return
     }
     setFile(value)
+    if (value && /\.(png|jpe?g|gif|webp)$/i.test(value.name)) {
+      void performOcr(value)
+    }
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setError('')
-    if ((mode === 'text' && !text.trim()) || (mode === 'file' && !file)) {
+    const noticeText = text.trim() || ocrExtracted.trim()
+    if ((mode === 'text' && !noticeText) || (mode === 'file' && !file && !noticeText)) {
       setError(mode === 'text' ? 'Paste the notice text to continue.' : 'Choose a notice file to continue.')
       return
     }
     setBusy(true)
     try {
       const form = new FormData()
-      if (mode === 'text') form.append('text', text.trim())
+      if (noticeText) form.append('text', noticeText)
       if (mode === 'file' && file) form.append('file', file)
       if (institutionId) form.append('institution_id', institutionId)
       const { data } = await api.post<ComparisonResponse>('/ingest/submit', form)
@@ -83,7 +116,36 @@ export default function SubmitPage() {
         state: { edgeId: data.edge_id, evidence: data.evidence, candidateScore: data.candidate_score },
       })
     } catch (err) {
-      setError(errorMessage(err))
+      const msg = errorMessage(err)
+      if (msg.includes('No Tesseract OCR engine is available') && file) {
+        setError('Scanning image directly in browser…')
+        try {
+          const res = await Tesseract.recognize(file, 'eng')
+          const scanned = res.data.text.trim()
+          if (scanned) {
+            setText(scanned)
+            setOcrExtracted(scanned)
+            // Retry submit with extracted text
+            const retryForm = new FormData()
+            retryForm.append('text', scanned)
+            retryForm.append('file', file)
+            if (institutionId) retryForm.append('institution_id', institutionId)
+            const { data } = await api.post<ComparisonResponse>('/ingest/submit', retryForm)
+            navigate('/result/' + data.submission_id, {
+              state: { edgeId: data.edge_id, evidence: data.evidence, candidateScore: data.candidate_score },
+            })
+            return
+          } else {
+            setMode('text')
+            setError('Could not extract text from the image. Please paste the notice text.')
+          }
+        } catch {
+          setMode('text')
+          setError('Please paste the notice text below to verify.')
+        }
+      } else {
+        setError(msg)
+      }
     } finally {
       setBusy(false)
     }
@@ -156,12 +218,24 @@ export default function SubmitPage() {
                   <input ref={fileInput} type="file" accept={FILE_TYPES} hidden
                     onChange={(event) => chooseFile(event.target.files?.[0] ?? null)} />
                   {file ? (
-                    <div className="selected-file">
-                      <FileText size={22} aria-hidden="true" />
-                      <div><strong>{file.name}</strong><small>{Math.max(1, Math.ceil(file.size / 1024))} KB</small></div>
-                      <button type="button" className="icon-button btn-secondary" onClick={() => chooseFile(null)} aria-label="Remove file">
-                        <X size={17} aria-hidden="true" />
-                      </button>
+                    <div>
+                      <div className="selected-file">
+                        <FileText size={22} aria-hidden="true" />
+                        <div><strong>{file.name}</strong><small>{Math.max(1, Math.ceil(file.size / 1024))} KB</small></div>
+                        <button type="button" className="icon-button btn-secondary" onClick={() => chooseFile(null)} aria-label="Remove file">
+                          <X size={17} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {ocrLoading && (
+                        <p className="muted" style={{ fontSize: '0.825rem', marginTop: '0.5rem' }}>
+                          Scanning notice text (OCR: {ocrProgress}%)…
+                        </p>
+                      )}
+                      {!ocrLoading && ocrExtracted && (
+                        <p style={{ fontSize: '0.825rem', color: '#10b981', marginTop: '0.5rem' }}>
+                          ✓ Notice text extracted from image ({ocrExtracted.length} characters)
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <>

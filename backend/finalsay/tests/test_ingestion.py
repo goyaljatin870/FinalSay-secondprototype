@@ -436,10 +436,10 @@ def test_source_onboarding_enable_and_dry_run():
     from finalsay.services import source_onboarding
 
     dry = source_onboarding.onboard(apply=False)
-    assert len(dry) == 3
+    assert len(dry) == 4
 
     applied = source_onboarding.onboard(apply=True, enable=True)
-    assert len(applied) >= 3
+    assert len(applied) >= 4
 
     from finalsay.db import SessionLocal
     from finalsay.models import Institution

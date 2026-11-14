@@ -24,7 +24,7 @@ from finalsay.models import Institution, ScrapeProgress
 from finalsay.services.ingestion import fetch_all
 from finalsay.services.scrape_runtime import acquire_scrape_slot, release_scrape_slot
 
-SOURCE_SLUGS = {"vtu", "university-of-delhi", "university-of-mumbai"}
+SOURCE_SLUGS = {"vtu", "university-of-delhi", "university-of-mumbai", "thapar-institute"}
 
 
 def run_backfill(source_slug: str, *, cycles: int, reset: bool = False) -> dict:
