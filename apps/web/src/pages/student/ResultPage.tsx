@@ -54,9 +54,10 @@ const INTEGRITY_MESSAGES: Record<VerifyResponse['integrity_status'], string> = {
 }
 
 interface RecentComparison {
-  edgeId: number
+  edgeId?: number
   evidence?: string[]
   candidateScore?: number | null
+  comparison?: ComparisonResponse
 }
 
 export default function ResultPage() {
@@ -65,7 +66,12 @@ export default function ResultPage() {
   const recent = state as RecentComparison | null
   const submissionId = Number(id)
   const [submission, setSubmission] = useState<NoticeDetail | null>(null)
-  const [outcome, setOutcome] = useState<ComparisonResponse | null>(null)
+  const [outcome, setOutcome] = useState<ComparisonResponse | null>(() => {
+    if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
+      return recent.comparison
+    }
+    return null
+  })
   const [verify, setVerify] = useState<VerifyResponse | null>(null)
   const [error, setError] = useState('')
   const [verifyError, setVerifyError] = useState('')
@@ -79,21 +85,55 @@ export default function ResultPage() {
     setError('')
     setVerify(null)
     setVerifyError('')
-    const result = api.get<ComparisonResponse>('/compare/' + submissionId, { signal: controller.signal })
-      .catch((err: unknown) => {
-        if (isAxiosError(err) && err.response?.status === 404) return null
+
+    const fetchComparison = async (): Promise<ComparisonResponse | null> => {
+      try {
+        const res = await api.get<ComparisonResponse>('/compare/' + submissionId, { signal: controller.signal })
+        return res.data
+      } catch (err: unknown) {
+        if (isAxiosError(err)) {
+          if (err.response?.status === 404) return null
+          // If server returns 405 Method Not Allowed (older backend with POST /compare/{id} only), fall back to POST:
+          if (err.response?.status === 405) {
+            try {
+              const postRes = await api.post<ComparisonResponse>(
+                '/compare/' + submissionId,
+                {},
+                { signal: controller.signal }
+              )
+              return postRes.data
+            } catch (postErr: unknown) {
+              if (isAxiosError(postErr) && postErr.response?.status === 404) return null
+              if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
+                return recent.comparison
+              }
+              throw postErr
+            }
+          }
+        }
+        if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
+          return recent.comparison
+        }
         throw err
-      })
+      }
+    }
+
     Promise.all([
       api.get<NoticeDetail>('/notices/' + submissionId, { signal: controller.signal }),
-      result,
+      fetchComparison(),
     ])
-      .then(([notice, comparison]) => {
+      .then(([notice, comparisonData]) => {
         setSubmission(notice.data)
-        setOutcome(comparison?.data ?? null)
+        setOutcome(comparisonData ?? recent?.comparison ?? null)
       })
       .catch((err) => {
-        if (!controller.signal.aborted) setError(errorMessage(err))
+        if (!controller.signal.aborted) {
+          if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
+            setOutcome(recent.comparison)
+          } else {
+            setError(errorMessage(err))
+          }
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)

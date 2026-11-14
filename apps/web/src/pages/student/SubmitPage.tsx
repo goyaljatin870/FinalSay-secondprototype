@@ -113,7 +113,12 @@ export default function SubmitPage() {
       if (institutionId) form.append('institution_id', institutionId)
       const { data } = await api.post<ComparisonResponse>('/ingest/submit', form)
       navigate('/result/' + data.submission_id, {
-        state: { edgeId: data.edge_id, evidence: data.evidence, candidateScore: data.candidate_score },
+        state: {
+          edgeId: data.edge_id,
+          evidence: data.evidence,
+          candidateScore: data.candidate_score,
+          comparison: data,
+        },
       })
     } catch (err) {
       const msg = errorMessage(err)
@@ -132,7 +137,12 @@ export default function SubmitPage() {
             if (institutionId) retryForm.append('institution_id', institutionId)
             const { data } = await api.post<ComparisonResponse>('/ingest/submit', retryForm)
             navigate('/result/' + data.submission_id, {
-              state: { edgeId: data.edge_id, evidence: data.evidence, candidateScore: data.candidate_score },
+              state: {
+                edgeId: data.edge_id,
+                evidence: data.evidence,
+                candidateScore: data.candidate_score,
+                comparison: data,
+              },
             })
             return
           } else {
