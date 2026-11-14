@@ -28,6 +28,7 @@ os.environ["FINALSAY_JWT_SECRET"] = "test-secret"
 os.environ["FINALSAY_COMPARISON_MODEL"] = "mock"
 # API tests must never start a real background scrape or depend on network state.
 os.environ["FINALSAY_SCRAPE_INTERVAL_SECONDS"] = "0"
+os.environ["FINALSAY_AUTO_BOOTSTRAP"] = "0"
 
 atexit.register(lambda: shutil.rmtree(_TMP_DIR, ignore_errors=True))
 
