@@ -1,0 +1,16 @@
+# Light image for Render free tier: Tesseract for image OCR, mock comparison
+# model (no ML downloads).
+FROM python:3.11-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       tesseract-ocr tesseract-ocr-hin tesseract-ocr-kan tesseract-ocr-mar \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/ ./
+
+ENV FINALSAY_COMPARISON_MODEL=mock
+CMD ["sh", "-c", "uvicorn finalsay.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]

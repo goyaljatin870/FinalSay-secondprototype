@@ -1,10 +1,9 @@
 services:
   - type: web
     name: finalsay-backend
-    runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn finalsay.main:create_app --factory --host 0.0.0.0 --port $PORT
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
     envVars:
       - key: FINALSAY_DATABASE_URL
         fromDatabase:
@@ -18,8 +17,6 @@ services:
         generateValue: true
       - key: FINALSAY_SCRAPE_INTERVAL_SECONDS
         value: "0"
-      - key: PYTHON_VERSION
-        value: 3.11.0
     healthCheckPath: /api/health
 
 databases:
