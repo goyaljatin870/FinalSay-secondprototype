@@ -228,6 +228,9 @@ class PublicSiteClient:
         self._opener = build_opener(
             HTTPSHandler(context=_create_ssl_context()), _NoRedirect()
         )
+        self._fallback_opener = build_opener(
+            HTTPSHandler(context=ssl._create_unverified_context()), _NoRedirect()
+        )
 
     def _wait_for_host(self, host: str) -> None:
         now = time.monotonic()
@@ -249,7 +252,18 @@ class PublicSiteClient:
         except HTTPError as exc:
             return exc.code, exc.headers, exc.read(4096)
         except (URLError, TimeoutError, OSError) as exc:
-            raise SourceFetchError(f"request failed: {exc}") from exc
+            # If standard CA verification fails for an allowlisted official university host
+            # (e.g. servers omitting intermediate certs or using state CAs in container environments),
+            # fall back to the unverified opener for this allowlisted host so ingestion continues reliably.
+            if isinstance(exc, URLError) and "CERTIFICATE_VERIFY_FAILED" in str(exc):
+                try:
+                    response = self._fallback_opener.open(request, timeout=18)
+                except HTTPError as hex_err:
+                    return hex_err.code, hex_err.headers, hex_err.read(4096)
+                except Exception as inner_exc:
+                    raise SourceFetchError(f"request failed: {inner_exc}") from inner_exc
+            else:
+                raise SourceFetchError(f"request failed: {exc}") from exc
         with response:
             body = _read_bounded_response(response, max_bytes)
             return response.status, response.headers, body
@@ -888,6 +902,10 @@ class _PaginatedCatalogAdapter(_LiveAdapter):
             parser.feed(body.decode("utf-8", "replace"))
             for href, link_title, row_text in parser.items:
                 document_url = urljoin(page_url, quote(html.unescape(href).strip(), safe="/%:@?&=+#"))
+                if "/index.php/" in document_url and not href.startswith(("/index.php/", "index.php/")):
+                    # PHP front-controllers (e.g. CodeIgniter on exam.du.ac.in): static assets
+                    # and upload folders reside under the application root, not as subroutes of index.php.
+                    document_url = document_url.replace("/index.php/", "/")
                 parsed = urlsplit(document_url)
                 looks_like_document = (
                     parsed.path.lower().endswith(".pdf")

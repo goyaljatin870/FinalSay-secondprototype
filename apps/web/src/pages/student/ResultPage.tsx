@@ -87,52 +87,92 @@ export default function ResultPage() {
     setVerifyError('')
 
     const fetchComparison = async (): Promise<ComparisonResponse | null> => {
+      if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId && attempt === 0) {
+        return recent.comparison
+      }
+      // Production deployed backend uses POST /api/compare/{submission_id}
       try {
-        const res = await api.get<ComparisonResponse>('/compare/' + submissionId, { signal: controller.signal })
-        return res.data
-      } catch (err: unknown) {
-        if (isAxiosError(err)) {
-          if (err.response?.status === 404) return null
-          // If server returns 405 Method Not Allowed (older backend with POST /compare/{id} only), fall back to POST:
-          if (err.response?.status === 405) {
+        const postRes = await api.post<ComparisonResponse>(
+          '/compare/' + submissionId,
+          {},
+          { signal: controller.signal }
+        )
+        return postRes.data
+      } catch (postErr: unknown) {
+        if (isAxiosError(postErr)) {
+          if (postErr.response?.status === 404) return null
+          // If server only accepts GET, fall back to GET
+          if (postErr.response?.status === 405) {
             try {
-              const postRes = await api.post<ComparisonResponse>(
+              const getRes = await api.get<ComparisonResponse>(
                 '/compare/' + submissionId,
-                {},
                 { signal: controller.signal }
               )
-              return postRes.data
-            } catch (postErr: unknown) {
-              if (isAxiosError(postErr) && postErr.response?.status === 404) return null
+              return getRes.data
+            } catch (getErr: unknown) {
+              if (isAxiosError(getErr) && getErr.response?.status === 404) return null
               if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
                 return recent.comparison
               }
-              throw postErr
+              throw getErr
             }
           }
         }
         if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
           return recent.comparison
         }
-        throw err
+        throw postErr
       }
     }
 
-    Promise.all([
+    Promise.allSettled([
       api.get<NoticeDetail>('/notices/' + submissionId, { signal: controller.signal }),
       fetchComparison(),
     ])
-      .then(([notice, comparisonData]) => {
-        setSubmission(notice.data)
-        setOutcome(comparisonData ?? recent?.comparison ?? null)
-      })
-      .catch((err) => {
-        if (!controller.signal.aborted) {
-          if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
-            setOutcome(recent.comparison)
-          } else {
-            setError(errorMessage(err))
+      .then(([noticeRes, compareRes]) => {
+        if (controller.signal.aborted) return
+
+        let noticeData: NoticeDetail | null = null
+        if (noticeRes.status === 'fulfilled') {
+          noticeData = noticeRes.value.data
+          setSubmission(noticeData)
+        } else if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
+          const comp = recent.comparison
+          noticeData = {
+            id: submissionId,
+            kind: 'submission',
+            institution_id: null,
+            title: null,
+            published_date: null,
+            issuer: null,
+            notice_date: null,
+            deadline: null,
+            audience: null,
+            source_url: null,
+            source_key: null,
+            version_no: 1,
+            is_current: true,
+            previous_version_id: null,
+            sha256: null,
+            retrieved_at: null,
+            action: null,
+            redacted_text: comp.candidate_text ?? null,
+            fields: [],
+            supplemental_extractions: [],
           }
+          setSubmission(noticeData)
+        }
+
+        if (compareRes.status === 'fulfilled' && compareRes.value) {
+          setOutcome(compareRes.value)
+        } else if (recent?.comparison && Number(recent.comparison.submission_id) === submissionId) {
+          setOutcome(recent.comparison)
+        }
+
+        if (!noticeData && noticeRes.status === 'rejected') {
+          setError(errorMessage(noticeRes.reason))
+        } else if (compareRes.status === 'rejected' && !recent?.comparison && !outcome) {
+          setError(errorMessage(compareRes.reason))
         }
       })
       .finally(() => {
@@ -157,7 +197,38 @@ export default function ResultPage() {
 
   const back = <Link to="/submit" className="back-link"><ArrowLeft size={17} aria-hidden="true" /> Check another notice</Link>
   if (loading) return <div className="card loading-card" role="status">Loading saved verification…</div>
-  if (error || !submission) {
+
+  const safeSubmission: NoticeDetail | null = submission ?? (outcome ? {
+    id: submissionId,
+    kind: 'submission',
+    institution_id: null,
+    title: null,
+    published_date: null,
+    issuer: null,
+    notice_date: null,
+    deadline: null,
+    audience: null,
+    source_url: null,
+    source_key: null,
+    version_no: 1,
+    is_current: true,
+    previous_version_id: null,
+    sha256: null,
+    retrieved_at: null,
+    action: null,
+    redacted_text: outcome.candidate_text ?? null,
+    fields: [],
+    supplemental_extractions: [],
+  } : null)
+
+  if (error && !outcome && !safeSubmission) {
+    return <div className="stack">{back}<div className="card"><h1>Verification result</h1>
+      <p className="error" role="alert">{error || 'This submission could not be found.'}</p>
+      <button type="button" onClick={() => setAttempt(attempt + 1)}>Try again</button>
+    </div></div>
+  }
+
+  if (!safeSubmission) {
     return <div className="stack">{back}<div className="card"><h1>Verification result</h1>
       <p className="error" role="alert">{error || 'This submission could not be found.'}</p>
       <button type="button" onClick={() => setAttempt(attempt + 1)}>Try again</button>
@@ -169,16 +240,16 @@ export default function ResultPage() {
   const reviewed = outcome?.status === 'confirmed' || outcome?.status === 'corrected'
   const sourceUrl = outcome?.candidate_source_url
   const sourceLink = sourceUrl && /^https?:\/\//i.test(sourceUrl) ? sourceUrl : null
-  const catalogue = submission.institution_id ? '/notices?institution_id=' + submission.institution_id : '/notices'
+  const catalogue = safeSubmission.institution_id ? '/notices?institution_id=' + safeSubmission.institution_id : '/notices'
   const matchedRecord = candidateId ? '/notices?notice=' + candidateId : catalogue
   const transient = recent && recent.edgeId === outcome?.edge_id ? recent : null
   const evidence = transient?.evidence ?? outcome?.evidence ?? []
   const retrievalScore = transient?.candidateScore ?? outcome?.candidate_score
   const ResultIcon = outcome?.gated ? Clock3 : outcome?.label === 'consistent' ? CircleCheck : TriangleAlert
   const comparedFields = [
-    { field: 'Issuer', submitted: submission.issuer, official: outcome?.candidate_issuer },
-    { field: 'Notice date', submitted: submission.notice_date, official: outcome?.candidate_notice_date },
-    { field: 'Deadline', submitted: submission.deadline, official: outcome?.candidate_deadline },
+    { field: 'Issuer', submitted: safeSubmission.issuer, official: outcome?.candidate_issuer },
+    { field: 'Notice date', submitted: safeSubmission.notice_date, official: outcome?.candidate_notice_date },
+    { field: 'Deadline', submitted: safeSubmission.deadline, official: outcome?.candidate_deadline },
   ]
   const proof = verify?.details
   const hashPassed = proof?.integrity_ok
@@ -189,7 +260,7 @@ export default function ResultPage() {
     <div className="stack result-workspace">
       {back}
       <header className="page-heading">
-        <div><h1>Verification result</h1><p className="muted">Submission #{submission.id}</p></div>
+        <div><h1>Verification result</h1><p className="muted">Submission #{safeSubmission.id}</p></div>
         {outcome && <LabelBadge label={outcome.label} />}
       </header>
       <div className={'result-overview ' + (outcome?.label === 'consistent' ? 'result-overview-ok' : '')}>
@@ -237,12 +308,12 @@ export default function ResultPage() {
         <div className="document-details">
           <details>
             <summary><FileText size={17} aria-hidden="true" /> Submitted notice and extracted fields</summary>
-            {submission.fields.some((field) => field.value) && (
-              <dl className="kv">{submission.fields.filter((field) => field.value).map(({ field_name, value }) => (
+            {safeSubmission.fields.some((field) => field.value) && (
+              <dl className="kv">{safeSubmission.fields.filter((field) => field.value).map(({ field_name, value }) => (
                 <div className="kv-pair" key={field_name}><dt>{field_name.replace(/_/g, ' ')}</dt><dd>{value}</dd></div>
               ))}</dl>
             )}
-            <pre className="pre">{submission.redacted_text || 'No readable notice text was saved.'}</pre>
+            <pre className="pre">{safeSubmission.redacted_text || 'No readable notice text was saved.'}</pre>
           </details>
           {candidateId && (
             <details>
