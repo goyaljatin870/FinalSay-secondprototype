@@ -41,7 +41,7 @@ jobs:
         working-directory: apps/web
         env:
           VITE_API_URL: ${{ vars.API_URL || 'https://finalsay-backend.onrender.com/api' }}
-          VITE_BASE_URL: /FinalSay-secondprototype/
+          VITE_BASE_URL: /${{ github.event.repository.name }}/
         run: npm run build
 
       - name: Upload Pages artifact
